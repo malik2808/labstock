@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import SignOutButton from "./SignOutButton";
 import AddComponentForm from "./AddComponentForm";
+import CheckoutControls from "./CheckoutControls";
 
 export default async function ComponentsPage({
   searchParams,
@@ -29,10 +30,25 @@ export default async function ComponentsPage({
     orderBy: { name: "asc" },
   });
 
+  // How many of each component this user currently holds
+  const grouped = await prisma.transaction.groupBy({
+    by: ["componentId", "type"],
+    where: { userId: session.user.id },
+    _sum: { qty: true },
+  });
+  const held = new Map<string, number>();
+  for (const g of grouped) {
+    const sign = g.type === "CHECKOUT" ? 1 : -1;
+    held.set(
+      g.componentId,
+      (held.get(g.componentId) ?? 0) + sign * (g._sum.qty ?? 0)
+    );
+  }
+
   const isAdmin = session.user.role === "ADMIN";
 
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-6">
+    <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Components</h1>
@@ -41,6 +57,9 @@ export default async function ComponentsPage({
           </p>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/history" className="underline">
+            {isAdmin ? "All activity" : "My activity"}
+          </Link>
           {isAdmin && (
             <Link href="/admin" className="underline">
               Admin page
@@ -83,32 +102,41 @@ export default async function ComponentsPage({
             <tr>
               <th className="p-2">Name</th>
               <th className="p-2">Category</th>
-              <th className="p-2">Quantity</th>
+              <th className="p-2">In stock</th>
               <th className="p-2">Reorder point</th>
               <th className="p-2">Status</th>
+              <th className="p-2">You hold</th>
+              <th className="p-2">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {components.map((c) => (
-              <tr key={c.id} className="border-b">
-                <td className="p-2">{c.name}</td>
-                <td className="p-2">{c.category.name}</td>
-                <td className="p-2">{c.quantity}</td>
-                <td className="p-2">{c.reorderPoint}</td>
-                <td className="p-2">
-                  {c.quantity <= c.reorderPoint ? (
-                    <span className="rounded bg-red-100 px-2 py-1 text-red-700">
-                      Low stock
-                    </span>
-                  ) : (
-                    <span className="text-green-700">OK</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {components.map((c) => {
+              const mine = held.get(c.id) ?? 0;
+              return (
+                <tr key={c.id} className="border-b align-top">
+                  <td className="p-2">{c.name}</td>
+                  <td className="p-2">{c.category.name}</td>
+                  <td className="p-2">{c.quantity}</td>
+                  <td className="p-2">{c.reorderPoint}</td>
+                  <td className="p-2">
+                    {c.quantity <= c.reorderPoint ? (
+                      <span className="rounded bg-red-100 px-2 py-1 text-red-700">
+                        Low stock
+                      </span>
+                    ) : (
+                      <span className="text-green-700">OK</span>
+                    )}
+                  </td>
+                  <td className="p-2">{mine}</td>
+                  <td className="p-2">
+                    <CheckoutControls componentId={c.id} held={mine} />
+                  </td>
+                </tr>
+              );
+            })}
             {components.length === 0 && (
               <tr>
-                <td colSpan={5} className="p-4 text-center text-gray-500">
+                <td colSpan={7} className="p-4 text-center text-gray-500">
                   No components found.
                 </td>
               </tr>
