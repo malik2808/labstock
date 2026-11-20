@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import SignOutButton from "./SignOutButton";
 import AddComponentForm from "./AddComponentForm";
 import CheckoutControls from "./CheckoutControls";
+import { isLowStock } from "@/lib/stock";
 
 export default async function ComponentsPage({
   searchParams,
@@ -46,6 +47,13 @@ export default async function ComponentsPage({
   }
 
   const isAdmin = session.user.role === "ADMIN";
+    const lowCount = isAdmin
+    ? (
+        await prisma.component.findMany({
+          select: { quantity: true, reorderPoint: true },
+        })
+      ).filter((c) => isLowStock(c.quantity, c.reorderPoint)).length
+    : 0;
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6">
@@ -68,6 +76,15 @@ export default async function ComponentsPage({
           <SignOutButton />
         </div>
       </header>
+
+      {isAdmin && lowCount > 0 && (
+        <div className="rounded border border-red-300 bg-red-100 p-3 text-red-800">
+          {lowCount} component{lowCount === 1 ? "" : "s"} low on stock.{" "}
+          <Link href="/admin" className="underline">
+            See what to reorder
+          </Link>
+        </div>
+      )}
 
       {isAdmin && <AddComponentForm />}
 
