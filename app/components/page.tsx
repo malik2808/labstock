@@ -114,7 +114,11 @@ export default async function ComponentsPage({
               const mine = held.get(c.id) ?? 0;
               return (
                 <tr key={c.id} className="border-b align-top">
-                  <td className="p-2">{c.name}</td>
+                  <td className="p-2">
+                    <Link href={`/components/${c.id}`} className="underline">
+                      {c.name}
+                    </Link>
+                  </td>
                   <td className="p-2">{c.category.name}</td>
                   <td className="p-2">{c.quantity}</td>
                   <td className="p-2">{c.reorderPoint}</td>

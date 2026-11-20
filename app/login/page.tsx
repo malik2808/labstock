@@ -14,7 +14,12 @@ export default function LoginPage() {
     e.preventDefault();
     const res = await signIn("credentials", { email, password, redirect: false });
     if (res?.error) setError("Invalid email or password");
-    else router.push("/components");
+    else {
+      const cb = new URLSearchParams(window.location.search).get("callbackUrl");
+      // only allow paths inside this site
+      const safe = cb && cb.startsWith("/") && !cb.startsWith("//") ? cb : "/components";
+      router.push(safe);
+    }
   }
 
   return (
